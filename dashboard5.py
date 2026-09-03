@@ -9,8 +9,6 @@ from datetime import datetime
 import re
 import os
 import base64
-from PIL import Image
-import io
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -91,7 +89,6 @@ def get_logo_base64():
         'image.png',
         'logo.png',
         'judiciary_logo.png',
-        '/Users/jud-05/Desktop/nyambane/judiciary_logo.png'
     ]
     
     for path in logo_paths:
@@ -275,7 +272,7 @@ def get_status_label(value):
         return "Off Track", "status-off-track"
 
 # ============================================================================
-# IMPROVED DATA PROCESSING - FIXED OUTCOME DETECTION
+# IMPROVED DATA PROCESSING
 # ============================================================================
 
 def compute_all_progress(ws):
@@ -308,31 +305,25 @@ def compute_all_progress(ws):
     unit_q_sums = {}
     unit_q_cnts = {}
     outcomes = {}
-    current_outcome = None
-    indicator_q_pcts = []
-    outcome_names = []
     
     # First, find all outcome rows by looking for "Outcome" in column A
     outcome_rows = {}
     for i in range(2, last_row + 1):
         col_a = ws.cell(row=i, column=1).value
         if col_a and isinstance(col_a, str) and "Outcome" in col_a:
-            # This is an outcome row
-            outcome_name = col_a.strip()
-            outcome_rows[i] = outcome_name
+            outcome_rows[i] = col_a.strip()
     
     # If no "Outcome" found in column A, look in column B
     if not outcome_rows:
         for i in range(2, last_row + 1):
             col_b = ws.cell(row=i, column=2).value
             if col_b and isinstance(col_b, str) and "Outcome" in col_b:
-                outcome_name = col_b.strip()
-                outcome_rows[i] = outcome_name
+                outcome_rows[i] = col_b.strip()
     
     # If still no outcomes found, use the original method
     if not outcome_rows:
-        # Use the original detection method
         current_outcome = 1
+        indicator_q_pcts = []
         for i in range(4, last_row + 1):
             target_val = ws.cell(row=i, column=target_col).value
             
@@ -372,7 +363,6 @@ def compute_all_progress(ws):
         outcome_indices = sorted(outcome_rows.keys())
         
         for idx, start_row in enumerate(outcome_indices):
-            # Determine end row (next outcome row or last row)
             if idx + 1 < len(outcome_indices):
                 end_row = outcome_indices[idx + 1]
             else:
@@ -380,7 +370,6 @@ def compute_all_progress(ws):
             
             outcome_name = outcome_rows[start_row]
             
-            # Collect all indicator data for this outcome
             outcome_q_pcts = []
             for row in range(start_row + 1, end_row):
                 target_val = ws.cell(row=row, column=target_col).value
@@ -391,7 +380,6 @@ def compute_all_progress(ws):
                 if row_pcts:
                     outcome_q_pcts.append(row_pcts)
                     
-                    # Also track units for this outcome
                     unit_cell = ws.cell(row=row, column=7).value
                     units = extract_units(unit_cell, all_unique_units)
                     
@@ -749,15 +737,20 @@ def main():
         st.error("Failed to load data. Please check the file format.")
         return
     
-    # Debug: Show what outcomes were detected
+    # Sidebar
     st.sidebar.header("🔍 Filters")
     
-
+    # Show detected outcomes
+    if outcomes:
+        st.sidebar.markdown("### 📋 Detected Outcomes:")
+        for outcome in outcomes.keys():
+            st.sidebar.markdown(f"- {outcome}")
+    else:
+        st.sidebar.markdown("### ⚠️ No outcomes detected")
     
-    # Get all outcome options
+    st.sidebar.markdown("---")
+    
     outcome_options = list(outcomes.keys()) if outcomes else []
-    
-    # Select ALL outcomes by default
     default_outcomes = outcome_options.copy()
     
     selected_outcomes = st.sidebar.multiselect(
@@ -766,7 +759,6 @@ def main():
         default=default_outcomes
     )
     
-    # Get all unit options
     unit_options = list(units.keys()) if units else []
     default_units = unit_options[:5] if len(unit_options) > 5 else unit_options
     
@@ -785,7 +777,7 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown(f"**Data Loaded:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     
-    # Filter outcomes based on selection
+    # Filter outcomes
     filtered_outcomes = {k: v for k, v in outcomes.items() if k in selected_outcomes}
     
     # KPI Cards
